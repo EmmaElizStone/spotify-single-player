@@ -79,7 +79,11 @@ contentEl.addClass("spotify-embed-login-content");
 
 const header = contentEl.createDiv({ cls: "spotify-embed-login-header" });
 header.createEl("p", {
-text: "Sign in to your spotify account below. After signing in, close this panel and your embeds will play full songs.",
+text: "Sign in to your spotify account below so the embed player can detect your session and play full songs. Close this panel when done.",
+});
+header.createEl("p", {
+text: "Use your email and password to sign in — the external sign-in option does not work in this panel.",
+cls: "spotify-embed-login-warning",
 });
 
 const frameContainer = contentEl.createDiv({ cls: "spotify-embed-login-frame-container" });

@@ -44,3 +44,9 @@
 	cursor: text;
 	user-select: all;
 }
+
+/* Warning text in the embed login modal */
+.spotify-embed-login-warning {
+	color: var(--text-warning);
+	font-size: var(--font-smaller);
+}

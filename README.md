@@ -34,8 +34,10 @@ Obsidian community plugin that inserts inline Spotify track iframes into your no
 ### 3. Log in to your Spotify account (for full song playback)
 
 1. From the command palette, run **Log in to spotify account**, or click **Log in to spotify** in the plugin settings.
-2. Your system browser opens the Spotify authorization page. Approve the request.
+2. Your **default system browser** opens the Spotify authorization page. Sign in and approve the request.
+   - You can use Google sign-in or your Spotify email and password here.
 3. After approval, a second panel opens inside Obsidian — sign in to Spotify there so the embed player can detect your session.
+   - **In this panel, sign in with your Spotify email and password.** Sign in with Google is not available inside Obsidian's embedded panel.
 4. Close that panel. Your embeds will now play full songs on repeat (requires Spotify Premium).
 
 ## Usage

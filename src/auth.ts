@@ -147,7 +147,20 @@ export async function startSpotifyOAuthLogin(clientId: string): Promise<UserToke
 		server.on("error", (err: Error) => settle(() => reject(err)));
 
 		server.listen(CALLBACK_PORT, "127.0.0.1", () => {
-			window.open(authUrl.toString());
+			// Use electron's shell.openExternal to open in the user's default system
+			// browser. window.open() in Electron creates a new BrowserWindow (an
+			// in-app popup with an isolated session), which causes two problems:
+			//   1. Google blocks OAuth sign-in from Electron contexts (error 400).
+			//   2. Spotify's login CSRF tokens fail in a fresh, cookieless popup.
+			// shell.openExternal bypasses both issues by using the real system browser.
+			type ElectronModule = { shell: { openExternal: (url: string) => void } };
+			import("electron")
+				.then((mod) => {
+					(mod as unknown as ElectronModule).shell.openExternal(authUrl.toString());
+				})
+				.catch(() => {
+					window.open(authUrl.toString());
+				});
 		});
 	});
 }
@@ -169,7 +182,14 @@ async function exchangeCodeForTokens(
 			client_id: clientId,
 			code_verifier: codeVerifier,
 		}).toString(),
+		throw: false,
 	});
+
+	if (response.status !== 200) {
+		const errBody = response.json as Partial<{ error: string; error_description: string }>;
+		const reason = errBody.error_description ?? errBody.error ?? `HTTP ${response.status}`;
+		throw new Error(`Spotify token error: ${reason}`);
+	}
 
 	const body = response.json as Partial<UserTokenResponse>;
 	if (!body.access_token || !body.refresh_token || typeof body.expires_in !== "number") {
