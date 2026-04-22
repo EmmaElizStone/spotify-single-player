@@ -1,5 +1,6 @@
 import { App, Notice, PluginSettingTab, Setting } from "obsidian";
 import SpotifySinglePlayerPlugin from "./main";
+import { CALLBACK_REDIRECT_URI } from "./auth";
 import { SpotifyEmbedLoginModal } from "./ui";
 
 export interface SpotifySinglePlayerSettings {
@@ -55,6 +56,27 @@ text
 .onChange(async (value) => {
 this.plugin.settings.clientSecret = value.trim();
 await this.plugin.saveSettings();
+}),
+);
+
+new Setting(containerEl)
+.setName("Redirect uri")
+.setDesc(
+"Add this exact URI as an allowed redirect URI in your spotify developer app settings. " +
+"Navigate to your app on the Spotify developer dashboard → Edit settings → Redirect URIs.",
+)
+.addText((text) => {
+text.setValue(CALLBACK_REDIRECT_URI);
+text.inputEl.setAttr("readonly", "true");
+text.inputEl.addClass("spotify-redirect-uri-input");
+})
+.addButton((button) =>
+button.setButtonText("Copy").onClick(() => {
+navigator.clipboard.writeText(CALLBACK_REDIRECT_URI).then(() => {
+new Notice("Redirect uri copied to clipboard.");
+}, () => {
+new Notice("Could not copy to clipboard.");
+});
 }),
 );
 

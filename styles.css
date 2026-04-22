@@ -37,3 +37,10 @@
 	display: block;
 }
 
+/* Read-only redirect URI display */
+.spotify-redirect-uri-input {
+	flex: 1;
+	font-family: var(--font-monospace);
+	cursor: text;
+	user-select: all;
+}

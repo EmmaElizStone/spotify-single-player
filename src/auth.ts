@@ -29,22 +29,6 @@ function generateState(): string {
 	return base64UrlEncode(array.buffer);
 }
 
-async function findFreePort(): Promise<number> {
-	return new Promise((resolve, reject) => {
-		const server = http.createServer();
-		server.listen(0, "127.0.0.1", () => {
-			const address = server.address();
-			if (address && typeof address === "object") {
-				const { port } = address;
-				server.close(() => resolve(port));
-			} else {
-				reject(new Error("Could not determine a free port."));
-			}
-		});
-		server.on("error", reject);
-	});
-}
-
 // Types
 
 export interface UserTokenResponse {
@@ -62,6 +46,14 @@ export interface SpotifyUserProfile {
 const SPOTIFY_SCOPES = "user-read-private user-read-email";
 const LOGIN_TIMEOUT_MS = 5 * 60 * 1000;
 
+/**
+ * The fixed local port used for the OAuth callback server.
+ * Users must register exactly `http://127.0.0.1:8765/callback` as a
+ * redirect URI in their Spotify developer app settings.
+ */
+export const CALLBACK_PORT = 8765;
+export const CALLBACK_REDIRECT_URI = `http://127.0.0.1:${CALLBACK_PORT}/callback`;
+
 const SUCCESS_HTML =
 	"<html><body style='font-family:sans-serif;padding:32px'><h2>Logged in to Spotify!</h2><p>You can close this tab and return to Obsidian.</p></body></html>";
 const CANCELLED_HTML =
@@ -70,14 +62,15 @@ const CANCELLED_HTML =
 /**
  * Start Spotify OAuth login via PKCE.
  * Opens the system browser for the user to authorize, then captures
- * the authorization code via a temporary local HTTP server.
+ * the authorization code via a temporary local HTTP server listening on
+ * CALLBACK_PORT. The user must have registered CALLBACK_REDIRECT_URI in
+ * their Spotify developer app settings.
  */
 export async function startSpotifyOAuthLogin(clientId: string): Promise<UserTokenResponse> {
 	const codeVerifier = await generateCodeVerifier();
 	const codeChallenge = await generateCodeChallenge(codeVerifier);
 	const state = generateState();
-	const port = await findFreePort();
-	const redirectUri = `http://127.0.0.1:${port}/callback`;
+	const redirectUri = CALLBACK_REDIRECT_URI;
 
 	const authUrl = new URL("https://accounts.spotify.com/authorize");
 	authUrl.searchParams.set("response_type", "code");
@@ -120,7 +113,7 @@ export async function startSpotifyOAuthLogin(clientId: string): Promise<UserToke
 				return;
 			}
 
-			const url = new URL(req.url, `http://127.0.0.1:${port}`);
+			const url = new URL(req.url, `http://127.0.0.1:${CALLBACK_PORT}`);
 			if (url.pathname !== "/callback") {
 				res.writeHead(404).end("Not found");
 				return;
@@ -153,7 +146,7 @@ export async function startSpotifyOAuthLogin(clientId: string): Promise<UserToke
 
 		server.on("error", (err: Error) => settle(() => reject(err)));
 
-		server.listen(port, "127.0.0.1", () => {
+		server.listen(CALLBACK_PORT, "127.0.0.1", () => {
 			window.open(authUrl.toString());
 		});
 	});

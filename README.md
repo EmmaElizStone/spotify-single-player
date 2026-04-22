@@ -17,7 +17,10 @@ Obsidian community plugin that inserts inline Spotify track iframes into your no
 ### 1. Create a Spotify developer app
 
 1. Go to the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) and create an app.
-2. Under **Redirect URIs**, add `http://127.0.0.1` (the plugin will bind a free port automatically).
+2. Under **Edit settings → Redirect URIs**, add the following URI **exactly** (including the port and path):
+   ```
+   http://127.0.0.1:8765/callback
+   ```
 3. Copy the **Client ID** and **Client secret**.
 
 ### 2. Configure the plugin
