@@ -17,7 +17,7 @@ Obsidian community plugin that inserts inline Spotify track iframes into your no
 1. Create a Spotify app at the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard).
 2. In Obsidian, open **Settings → Community plugins → Spotify Single Player**.
 3. Enter:
-   - **Spotify client ID**
+   - **Spotify client id**
    - **Spotify client secret**
 4. Optionally configure autoplay and iframe height.
 5. Run **Authenticate Spotify developer credentials** from the command palette.

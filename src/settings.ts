@@ -28,11 +28,11 @@ export class SpotifySinglePlayerSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName("Spotify client key")
-			.setDesc("Client key from your spotify developer app.")
+			.setName("Spotify client identifier")
+			.setDesc("Client identifier from your spotify developer app.")
 			.addText((text) =>
 				text
-					.setPlaceholder("Client key")
+					.setPlaceholder("Spotify client identifier")
 					.setValue(this.plugin.settings.clientId)
 					.onChange(async (value) => {
 						this.plugin.settings.clientId = value.trim();

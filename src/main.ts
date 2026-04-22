@@ -136,6 +136,12 @@ class SpotifyTrackUrlModal extends Modal {
 				text.setPlaceholder("https://open.spotify.com/track/...").onChange((value) => {
 					this.value = value;
 				});
+				text.inputEl.addEventListener("keydown", (event) => {
+					if (event.key === "Enter") {
+						event.preventDefault();
+						this.submitValue();
+					}
+				});
 				text.inputEl.focus();
 			});
 
@@ -143,11 +149,7 @@ class SpotifyTrackUrlModal extends Modal {
 			button
 				.setButtonText("Insert")
 				.setCta()
-				.onClick(() => {
-					this.resolveValue?.(this.value.trim() || null);
-					this.resolveValue = null;
-					this.close();
-				}),
+				.onClick(() => this.submitValue()),
 		);
 	}
 
@@ -157,5 +159,11 @@ class SpotifyTrackUrlModal extends Modal {
 			this.resolveValue(null);
 			this.resolveValue = null;
 		}
+	}
+
+	private submitValue() {
+		this.resolveValue?.(this.value.trim() || null);
+		this.resolveValue = null;
+		this.close();
 	}
 }
