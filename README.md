@@ -1,90 +1,70 @@
-# Obsidian Sample Plugin
+# Spotify Single Player
 
-This is a sample plugin for Obsidian (https://obsidian.md).
+Obsidian community plugin that inserts interactive Spotify players into your notes. When you log in with a Spotify Premium account, the player streams the full song on repeat until you pause it.
 
-This project uses TypeScript to provide type checking and documentation.
-The repo depends on the latest plugin API (obsidian.d.ts) in TypeScript Definition format, which contains TSDoc comments describing what it does.
+> **Desktop only** — the user login flow uses a local HTTP server for the OAuth callback, and audio is played via the Spotify Web Playback SDK running inside Electron.
 
-This sample plugin demonstrates some of the basic functionality the plugin API can do.
-- Adds a ribbon icon, which shows a Notice when clicked.
-- Adds a command "Open modal (simple)" which opens a Modal.
-- Adds a plugin setting tab to the settings page.
-- Registers a global click event and output 'click' to the console.
-- Registers a global interval which logs 'setInterval' to the console.
+## Features
 
-## First time developing plugins?
+- **Insert spotify player** — uses the current editor selection (if it is a Spotify track URL/URI), or prompts for a link. Inserts an interactive player block into the note.
+- **Log in to Spotify account** — authenticates with your personal Spotify account via OAuth 2.0 PKCE. Stores access and refresh tokens for subsequent use.
+- **Log out of Spotify account** — clears the stored user session.
+- **Authenticate Spotify developer credentials** — validates your app's client credentials.
+- **Full-song repeat playback** — Premium users get full track audio that loops automatically via the Spotify Web Playback SDK. Free/unauthenticated users can open the track on Spotify with the logo link.
 
-Quick starting guide for new plugin devs:
+## Setup
 
-- Check if [someone already developed a plugin for what you want](https://obsidian.md/plugins)! There might be an existing plugin similar enough that you can partner up with.
-- Make a copy of this repo as a template with the "Use this template" button (login to GitHub if you don't see it).
-- Clone your repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/your-plugin-name` folder.
-- Install NodeJS, then run `npm i` in the command line under your repo folder.
-- Run `npm run dev` to compile your plugin from `main.ts` to `main.js`.
-- Make changes to `main.ts` (or create new `.ts` files). Those changes should be automatically compiled into `main.js`.
-- Reload Obsidian to load the new version of your plugin.
-- Enable plugin in settings window.
-- For updates to the Obsidian API run `npm update` in the command line under your repo folder.
+### 1. Create a Spotify developer app
 
-## Releasing new releases
+1. Go to the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) and create an app.
+2. Under **Edit settings → Redirect URIs**, add the following URI **exactly** (including the port and path):
+   ```
+   http://127.0.0.1:8765/callback
+   ```
+3. Copy the **Client ID** and **Client secret**.
 
-- Update your `manifest.json` with your new version number, such as `1.0.1`, and the minimum Obsidian version required for your latest release.
-- Update your `versions.json` file with `"new-plugin-version": "minimum-obsidian-version"` so older versions of Obsidian can download an older version of your plugin that's compatible.
-- Create new GitHub release using your new version number as the "Tag version". Use the exact version number, don't include a prefix `v`. See here for an example: https://github.com/obsidianmd/obsidian-sample-plugin/releases
-- Upload the files `manifest.json`, `main.js`, `styles.css` as binary attachments. Note: The manifest.json file must be in two places, first the root path of your repository and also in the release.
-- Publish the release.
+### 2. Configure the plugin
 
-> You can simplify the version bump process by running `npm version patch`, `npm version minor` or `npm version major` after updating `minAppVersion` manually in `manifest.json`.
-> The command will bump version in `manifest.json` and `package.json`, and add the entry for the new version to `versions.json`
+1. In Obsidian, open **Settings → Community plugins → Spotify Single Player**.
+2. Enter:
+   - **Spotify client identifier**
+   - **Spotify client secret**
+3. Optionally configure autoplay and player height under **Player configuration**.
 
-## Adding your plugin to the community plugin list
+### 3. Log in to your Spotify account (for full song playback)
 
-- Check the [plugin guidelines](https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines).
-- Publish an initial version.
-- Make sure you have a `README.md` file in the root of your repo.
-- Make a pull request at https://github.com/obsidianmd/obsidian-releases to add your plugin.
+1. From the command palette, run **Log in to spotify account**, or click **Log in to spotify** in the plugin settings.
+2. Your **default system browser** opens the Spotify authorization page. Sign in and approve the request.
+   - You can use Google sign-in or your Spotify email and password here.
+3. Once authorized, the plugin stores your session. Your players will now stream full songs on repeat (requires Spotify Premium).
 
-## How to use
+## Usage
 
-- Clone this repo.
-- Make sure your NodeJS is at least v16 (`node --version`).
-- `npm i` or `yarn` to install dependencies.
-- `npm run dev` to start compilation in watch mode.
+1. Copy a Spotify track link:
+   - `https://open.spotify.com/track/<id>`
+   - `spotify:track:<id>`
+2. In a note, run **Insert spotify player** from the command palette.
+3. The plugin inserts a player block. Click the play button to start the full song. It will loop on repeat until you pause it.
+4. The Spotify logo icon on the right opens the track on Spotify in your browser.
 
-## Manually installing the plugin
+## Privacy and network usage
 
-- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/your-plugin-id/`.
+This plugin is desktop-only and makes outbound requests only to Spotify:
 
-## Improve code quality with eslint
-- [ESLint](https://eslint.org/) is a tool that analyzes your code to quickly find problems. You can run ESLint against your plugin to find common bugs and ways to improve your code. 
-- This project already has eslint preconfigured, you can invoke a check by running`npm run lint`
-- Together with a custom eslint [plugin](https://github.com/obsidianmd/eslint-plugin) for Obsidan specific code guidelines.
-- A GitHub action is preconfigured to automatically lint every commit on all branches.
+- `https://accounts.spotify.com/api/token` — client credentials + user OAuth token exchange/refresh
+- `https://accounts.spotify.com/authorize` — user login (opened in your browser)
+- `https://api.spotify.com/v1/tracks/<id>` — track metadata (title, artist, album art, duration)
+- `https://api.spotify.com/v1/me` — user profile (display name, account tier)
+- `https://api.spotify.com/v1/me/player/play` — start playback on the SDK device (Premium only)
+- `https://api.spotify.com/v1/me/player/repeat` — enable single-track repeat (Premium only)
+- `https://sdk.scdn.co/spotify-player.js` — the Spotify Web Playback SDK (loaded once on first play)
 
-## Funding URL
+No telemetry is collected. Credentials and tokens are stored in Obsidian plugin data on your device only.
 
-You can include funding URLs where people who use your plugin can financially support it.
+## Development
 
-The simple way is to set the `fundingUrl` field to your link in your `manifest.json` file:
-
-```json
-{
-    "fundingUrl": "https://buymeacoffee.com"
-}
+```bash
+npm install
+npm run lint
+npm run build
 ```
-
-If you have multiple URLs, you can also do:
-
-```json
-{
-    "fundingUrl": {
-        "Buy Me a Coffee": "https://buymeacoffee.com",
-        "GitHub Sponsor": "https://github.com/sponsors",
-        "Patreon": "https://www.patreon.com/"
-    }
-}
-```
-
-## API Documentation
-
-See https://docs.obsidian.md
