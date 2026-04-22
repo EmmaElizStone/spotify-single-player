@@ -90,7 +90,22 @@ export async function fetchTrackInfo(trackId: string, accessToken: string): Prom
 	};
 }
 
-export function buildEmbedMarkdown(track: SpotifyTrackInfo, autoplay: boolean, iframeHeight: number): string {
+/**
+ * Build the inline iframe markdown for a Spotify track.
+ *
+ * @param track        - Spotify track metadata.
+ * @param autoplay     - Whether to request autoplay in the embed.
+ * @param iframeHeight - Height in pixels for the iframe.
+ * @param fullPlayback - True when the user is logged in with a Premium account.
+ *                       Determines whether the repeat timer uses the full track
+ *                       duration or the 30-second preview window.
+ */
+export function buildEmbedMarkdown(
+	track: SpotifyTrackInfo,
+	autoplay: boolean,
+	iframeHeight: number,
+	fullPlayback: boolean,
+): string {
 	const params = new URLSearchParams({
 		utm_source: "obsidian_plugin",
 	});
@@ -98,7 +113,12 @@ export function buildEmbedMarkdown(track: SpotifyTrackInfo, autoplay: boolean, i
 		params.set("autoplay", "1");
 	}
 
+	// Use the full track duration for Premium users; fall back to the 30-second
+	// preview window for free/unauthenticated users so the repeat timer fires
+	// at the right moment.
+	const repeatMs = fullPlayback ? track.durationMs : Math.min(track.durationMs, 30_000);
+
 	const safeHeight = Number.isFinite(iframeHeight) && iframeHeight > 0 ? Math.round(iframeHeight) : 152;
 	const embedSrc = `https://open.spotify.com/embed/track/${track.id}?${params.toString()}`;
-	return `<iframe class="spotify-single-player-embed" src="${embedSrc}" width="100%" height="${safeHeight}" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy" data-spotify-repeat-ms="${track.durationMs}"></iframe>\n\n`;
+	return `<iframe class="spotify-single-player-embed" src="${embedSrc}" width="100%" height="${safeHeight}" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy" data-spotify-repeat-ms="${repeatMs}"></iframe>\n\n`;
 }
