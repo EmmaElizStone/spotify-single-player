@@ -1,99 +1,161 @@
-import {App, Editor, MarkdownView, Modal, Notice, Plugin} from 'obsidian';
-import {DEFAULT_SETTINGS, MyPluginSettings, SampleSettingTab} from "./settings";
+import { App, Modal, Notice, Plugin, Setting } from "obsidian";
+import { buildEmbedMarkdown, fetchSpotifyAccessToken, fetchTrackInfo, parseSpotifyTrackId } from "./spotify";
+import { DEFAULT_SETTINGS, SpotifySinglePlayerSettingTab, SpotifySinglePlayerSettings } from "./settings";
 
-// Remember to rename these classes and interfaces!
+interface CachedSpotifyToken {
+	accessToken: string;
+	expiresAt: number;
+}
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+export default class SpotifySinglePlayerPlugin extends Plugin {
+	settings: SpotifySinglePlayerSettings;
+	private token: CachedSpotifyToken | null = null;
+	private iframeRepeatIntervals = new WeakMap<HTMLIFrameElement, number>();
 
 	async onload() {
 		await this.loadSettings();
 
-		// This creates an icon in the left ribbon.
-		this.addRibbonIcon('dice', 'Sample', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
+		this.addCommand({
+			id: "insert-spotify-track-iframe",
+			name: "Insert spotify track iframe",
+			editorCallback: async (editor) => {
+				const selection = editor.getSelection().trim();
+				const spotifyInput = selection || (await new SpotifyTrackUrlModal(this.app).openAndGetValue());
+				if (!spotifyInput) {
+					return;
+				}
 
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status bar text');
-
-		// This adds a simple command that can be triggered anywhere
-		this.addCommand({
-			id: 'open-modal-simple',
-			name: 'Open modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
-			}
-		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'replace-selected',
-			name: 'Replace selected content',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				editor.replaceSelection('Sample editor command');
-			}
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-modal-complex',
-			name: 'Open modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
+				try {
+					const trackId = parseSpotifyTrackId(spotifyInput);
+					if (!trackId) {
+						new Notice("Enter a valid spotify track link or spotify:track reference.");
+						return;
 					}
 
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
+					const accessToken = await this.getSpotifyAccessToken();
+					const track = await fetchTrackInfo(trackId, accessToken);
+					editor.replaceSelection(
+						buildEmbedMarkdown(track, this.settings.autoplay, this.settings.iframeHeight),
+					);
+					new Notice(`Inserted iframe for ${track.name} (${track.artists.join(", ")})`);
+				} catch (error) {
+					const message = error instanceof Error ? error.message : "Unknown Spotify error.";
+					new Notice(`Could not insert Spotify iframe: ${message}`);
 				}
-				return false;
+			},
+		});
+
+		this.addCommand({
+			id: "authenticate-spotify-client",
+			name: "Authenticate spotify developer credentials",
+			callback: async () => {
+				try {
+					await this.getSpotifyAccessToken(true);
+					new Notice("Spotify developer credentials are valid.");
+				} catch (error) {
+					const message = error instanceof Error ? error.message : "Unknown Spotify error.";
+					new Notice(`Spotify authentication failed: ${message}`);
+				}
+			},
+		});
+
+		this.registerMarkdownPostProcessor((root) => {
+			for (const frame of Array.from(root.querySelectorAll<HTMLIFrameElement>("iframe.spotify-single-player-embed"))) {
+				const repeatMs = Number(frame.getAttribute("data-spotify-repeat-ms"));
+				const src = frame.getAttribute("src");
+				if (!Number.isFinite(repeatMs) || repeatMs <= 0 || !src || this.iframeRepeatIntervals.has(frame)) {
+					continue;
+				}
+
+				const interval = window.setInterval(() => {
+					if (!frame.isConnected) {
+						window.clearInterval(interval);
+						this.iframeRepeatIntervals.delete(frame);
+						return;
+					}
+
+					const separator = src.includes("?") ? "&" : "?";
+					frame.setAttribute("src", `${src}${separator}repeatTick=${Date.now()}`);
+				}, repeatMs + 600);
+
+				this.iframeRepeatIntervals.set(frame, interval);
+				this.register(() => window.clearInterval(interval));
 			}
 		});
 
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
-
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			new Notice("Click");
-		});
-
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
-
-	}
-
-	onunload() {
+		this.addSettingTab(new SpotifySinglePlayerSettingTab(this.app, this));
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<MyPluginSettings>);
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, (await this.loadData()) as Partial<SpotifySinglePlayerSettings>);
 	}
 
 	async saveSettings() {
 		await this.saveData(this.settings);
 	}
+
+	private async getSpotifyAccessToken(forceRefresh = false): Promise<string> {
+		const now = Date.now();
+		if (!forceRefresh && this.token && this.token.expiresAt > now + 10_000) {
+			return this.token.accessToken;
+		}
+
+		const tokenResponse = await fetchSpotifyAccessToken(this.settings);
+		this.token = {
+			accessToken: tokenResponse.access_token,
+			expiresAt: now + tokenResponse.expires_in * 1000,
+		};
+
+		return this.token.accessToken;
+	}
 }
 
-class SampleModal extends Modal {
+class SpotifyTrackUrlModal extends Modal {
+	private resolveValue: ((value: string | null) => void) | null = null;
+	private value = "";
+
 	constructor(app: App) {
 		super(app);
 	}
 
+	openAndGetValue(): Promise<string | null> {
+		return new Promise((resolve) => {
+			this.resolveValue = resolve;
+			this.open();
+		});
+	}
+
 	onOpen() {
-		let {contentEl} = this;
-		contentEl.setText('Woah!');
+		const { contentEl } = this;
+		contentEl.empty();
+
+		new Setting(contentEl)
+			.setName("Spotify track link")
+			.setDesc("Paste a spotify track link or spotify:track reference.")
+			.addText((text) => {
+				text.setPlaceholder("https://open.spotify.com/track/...").onChange((value) => {
+					this.value = value;
+				});
+				text.inputEl.focus();
+			});
+
+		new Setting(contentEl).addButton((button) =>
+			button
+				.setButtonText("Insert")
+				.setCta()
+				.onClick(() => {
+					this.resolveValue?.(this.value.trim() || null);
+					this.resolveValue = null;
+					this.close();
+				}),
+		);
 	}
 
 	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
+		this.contentEl.empty();
+		if (this.resolveValue) {
+			this.resolveValue(null);
+			this.resolveValue = null;
+		}
 	}
 }

@@ -1,90 +1,47 @@
-# Obsidian Sample Plugin
+# Spotify Single Player
 
-This is a sample plugin for Obsidian (https://obsidian.md).
+Obsidian community plugin that inserts inline Spotify track iframes into your notes and loops playback by reloading the embed at track end.
 
-This project uses TypeScript to provide type checking and documentation.
-The repo depends on the latest plugin API (obsidian.d.ts) in TypeScript Definition format, which contains TSDoc comments describing what it does.
+## Features
 
-This sample plugin demonstrates some of the basic functionality the plugin API can do.
-- Adds a ribbon icon, which shows a Notice when clicked.
-- Adds a command "Open modal (simple)" which opens a Modal.
-- Adds a plugin setting tab to the settings page.
-- Registers a global click event and output 'click' to the console.
-- Registers a global interval which logs 'setInterval' to the console.
+- Command: **Insert Spotify track iframe**
+  - Uses the current editor selection (if it is a Spotify track URL/URI), or prompts for a link.
+  - Inserts an inline `<iframe>` embed in the note.
+- Command: **Authenticate Spotify developer credentials**
+  - Validates your Spotify Developer client credentials.
+- Auto-repeat playback
+  - The plugin reads track duration from Spotify Web API and reloads the iframe after the track completes.
 
-## First time developing plugins?
+## Setup
 
-Quick starting guide for new plugin devs:
+1. Create a Spotify app at the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard).
+2. In Obsidian, open **Settings → Community plugins → Spotify Single Player**.
+3. Enter:
+   - **Spotify client ID**
+   - **Spotify client secret**
+4. Optionally configure autoplay and iframe height.
+5. Run **Authenticate Spotify developer credentials** from the command palette.
 
-- Check if [someone already developed a plugin for what you want](https://obsidian.md/plugins)! There might be an existing plugin similar enough that you can partner up with.
-- Make a copy of this repo as a template with the "Use this template" button (login to GitHub if you don't see it).
-- Clone your repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/your-plugin-name` folder.
-- Install NodeJS, then run `npm i` in the command line under your repo folder.
-- Run `npm run dev` to compile your plugin from `main.ts` to `main.js`.
-- Make changes to `main.ts` (or create new `.ts` files). Those changes should be automatically compiled into `main.js`.
-- Reload Obsidian to load the new version of your plugin.
-- Enable plugin in settings window.
-- For updates to the Obsidian API run `npm update` in the command line under your repo folder.
+## Usage
 
-## Releasing new releases
+1. Copy a Spotify track link like:
+   - `https://open.spotify.com/track/<id>`
+   - `spotify:track:<id>`
+2. In a note, run **Insert Spotify track iframe**.
+3. The plugin inserts an inline iframe that plays the track and repeats.
 
-- Update your `manifest.json` with your new version number, such as `1.0.1`, and the minimum Obsidian version required for your latest release.
-- Update your `versions.json` file with `"new-plugin-version": "minimum-obsidian-version"` so older versions of Obsidian can download an older version of your plugin that's compatible.
-- Create new GitHub release using your new version number as the "Tag version". Use the exact version number, don't include a prefix `v`. See here for an example: https://github.com/obsidianmd/obsidian-sample-plugin/releases
-- Upload the files `manifest.json`, `main.js`, `styles.css` as binary attachments. Note: The manifest.json file must be in two places, first the root path of your repository and also in the release.
-- Publish the release.
+## Privacy and network usage
 
-> You can simplify the version bump process by running `npm version patch`, `npm version minor` or `npm version major` after updating `minAppVersion` manually in `manifest.json`.
-> The command will bump version in `manifest.json` and `package.json`, and add the entry for the new version to `versions.json`
+- This plugin makes outbound requests only to Spotify:
+  - `https://accounts.spotify.com/api/token` (client credentials auth)
+  - `https://api.spotify.com/v1/tracks/<id>` (track metadata, duration)
+- No telemetry is collected by this plugin.
+- Spotify credentials are stored in Obsidian plugin data on your device.
 
-## Adding your plugin to the community plugin list
+## Development
 
-- Check the [plugin guidelines](https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines).
-- Publish an initial version.
-- Make sure you have a `README.md` file in the root of your repo.
-- Make a pull request at https://github.com/obsidianmd/obsidian-releases to add your plugin.
-
-## How to use
-
-- Clone this repo.
-- Make sure your NodeJS is at least v16 (`node --version`).
-- `npm i` or `yarn` to install dependencies.
-- `npm run dev` to start compilation in watch mode.
-
-## Manually installing the plugin
-
-- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/your-plugin-id/`.
-
-## Improve code quality with eslint
-- [ESLint](https://eslint.org/) is a tool that analyzes your code to quickly find problems. You can run ESLint against your plugin to find common bugs and ways to improve your code. 
-- This project already has eslint preconfigured, you can invoke a check by running`npm run lint`
-- Together with a custom eslint [plugin](https://github.com/obsidianmd/eslint-plugin) for Obsidan specific code guidelines.
-- A GitHub action is preconfigured to automatically lint every commit on all branches.
-
-## Funding URL
-
-You can include funding URLs where people who use your plugin can financially support it.
-
-The simple way is to set the `fundingUrl` field to your link in your `manifest.json` file:
-
-```json
-{
-    "fundingUrl": "https://buymeacoffee.com"
-}
+```bash
+npm install
+npm run lint
+npm run build
 ```
-
-If you have multiple URLs, you can also do:
-
-```json
-{
-    "fundingUrl": {
-        "Buy Me a Coffee": "https://buymeacoffee.com",
-        "GitHub Sponsor": "https://github.com/sponsors",
-        "Patreon": "https://www.patreon.com/"
-    }
-}
-```
-
-## API Documentation
-
-See https://docs.obsidian.md
