@@ -1,11 +1,14 @@
 import { requestUrl } from "obsidian";
 import type { SpotifySinglePlayerSettings } from "./settings";
+import type { TrackDisplayData } from "./player-ui";
 
 export interface SpotifyTrackInfo {
 	id: string;
 	name: string;
 	artists: string[];
 	durationMs: number;
+	/** URL of the largest available album art image. */
+	albumArtUrl: string;
 }
 
 interface SpotifyTokenResponse {
@@ -18,6 +21,7 @@ interface SpotifyTrackResponse {
 	name: string;
 	duration_ms: number;
 	artists: Array<{ name: string }>;
+	album: { images: Array<{ url: string; width: number; height: number }> };
 }
 
 export function parseSpotifyTrackId(value: string): string | null {
@@ -87,38 +91,31 @@ export async function fetchTrackInfo(trackId: string, accessToken: string): Prom
 		name: trackBody.name ?? "Unknown track",
 		durationMs: trackBody.duration_ms,
 		artists: trackBody.artists.map((artist) => artist.name).filter(Boolean),
+		// Use the largest available image (Spotify returns images in descending size order).
+		albumArtUrl: trackBody.album?.images?.[0]?.url ?? "",
 	};
 }
 
 /**
- * Build the inline iframe markdown for a Spotify track.
+ * Build the fenced code block markdown for a Spotify track.
+ *
+ * The `spotify-player` code block is rendered by the plugin's code-block
+ * processor into a Spotify-styled interactive player powered by the Web
+ * Playback SDK.  The block stores all track metadata as JSON so that no
+ * additional API calls are needed at render time.
  *
  * @param track        - Spotify track metadata.
- * @param autoplay     - Whether to request autoplay in the embed.
- * @param iframeHeight - Height in pixels for the iframe.
- * @param fullPlayback - True when the user is logged in with a Premium account.
- *                       Determines whether the repeat timer uses the full track
- *                       duration or the 30-second preview window.
+ * @param height       - Height in pixels for the rendered player element.
  */
-export function buildEmbedMarkdown(
-	track: SpotifyTrackInfo,
-	autoplay: boolean,
-	iframeHeight: number,
-	fullPlayback: boolean,
-): string {
-	const params = new URLSearchParams({
-		utm_source: "obsidian_plugin",
-	});
-	if (autoplay) {
-		params.set("autoplay", "1");
-	}
-
-	// Use the full track duration for Premium users; fall back to the 30-second
-	// preview window for free/unauthenticated users so the repeat timer fires
-	// at the right moment.
-	const repeatMs = fullPlayback ? track.durationMs : Math.min(track.durationMs, 30_000);
-
-	const safeHeight = Number.isFinite(iframeHeight) && iframeHeight > 0 ? Math.round(iframeHeight) : 152;
-	const embedSrc = `https://open.spotify.com/embed/track/${track.id}?${params.toString()}`;
-	return `<iframe class="spotify-single-player-embed" src="${embedSrc}" width="100%" height="${safeHeight}" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy" data-spotify-repeat-ms="${repeatMs}"></iframe>\n\n`;
+export function buildPlayerCodeBlock(track: SpotifyTrackInfo, height: number): string {
+	const safeHeight = Number.isFinite(height) && height > 0 ? Math.round(height) : 152;
+	const data: TrackDisplayData = {
+		trackId: track.id,
+		trackName: track.name,
+		artists: track.artists.join(", "),
+		albumArtUrl: track.albumArtUrl,
+		durationMs: track.durationMs,
+		height: safeHeight,
+	};
+	return `\`\`\`spotify-player\n${JSON.stringify(data)}\n\`\`\`\n\n`;
 }

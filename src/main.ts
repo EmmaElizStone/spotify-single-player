@@ -1,8 +1,10 @@
 import { Notice, Plugin } from "obsidian";
-import { fetchSpotifyAccessToken, fetchTrackInfo, parseSpotifyTrackId, buildEmbedMarkdown } from "./spotify";
+import { fetchSpotifyAccessToken, fetchTrackInfo, parseSpotifyTrackId, buildPlayerCodeBlock } from "./spotify";
 import { DEFAULT_SETTINGS, SpotifySinglePlayerSettingTab, SpotifySinglePlayerSettings } from "./settings";
 import { fetchUserProfile, refreshSpotifyUserToken, startSpotifyOAuthLogin, UserTokenResponse } from "./auth";
-import { SpotifyEmbedLoginModal, SpotifyTrackUrlModal } from "./ui";
+import { SpotifyTrackUrlModal } from "./ui";
+import { SpotifyWebPlayer } from "./player";
+import { initPlayerElement, TrackDisplayData } from "./player-ui";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -44,6 +46,7 @@ userAuth: StoredUserAuth | null = null;
 private clientToken: CachedToken | null = null;
 private userToken: CachedToken | null = null;
 private iframeRepeatIntervals = new WeakMap<HTMLIFrameElement, number>();
+private webPlayer = new SpotifyWebPlayer();
 
 async onload() {
 await this.loadSettings();
@@ -52,7 +55,7 @@ await this.loadSettings();
 
 this.addCommand({
 id: "insert-spotify-track-iframe",
-name: "Insert spotify track iframe",
+name: "Insert spotify player",
 editorCallback: async (editor) => {
 const selection = editor.getSelection().trim();
 const spotifyInput = selection || (await new SpotifyTrackUrlModal(this.app).openAndGetValue());
@@ -69,14 +72,13 @@ return;
 
 const accessToken = await this.getSpotifyAccessToken();
 const track = await fetchTrackInfo(trackId, accessToken);
-const fullPlayback = this.userAuth?.premium === true;
 editor.replaceSelection(
-buildEmbedMarkdown(track, this.settings.autoplay, this.settings.iframeHeight, fullPlayback),
+buildPlayerCodeBlock(track, this.settings.iframeHeight),
 );
-new Notice(`Inserted iframe for ${track.name} (${track.artists.join(", ")})`);
+new Notice(`Inserted player for ${track.name} (${track.artists.join(", ")})`);
 } catch (error) {
 const message = error instanceof Error ? error.message : "Unknown Spotify error.";
-new Notice(`Could not insert Spotify iframe: ${message}`);
+new Notice(`Could not insert Spotify player: ${message}`);
 }
 },
 });
@@ -140,7 +142,30 @@ this.register(() => window.clearInterval(interval));
 }
 });
 
+// ---- Markdown code-block processor: spotify-player ----
+
+this.registerMarkdownCodeBlockProcessor("spotify-player", (source, el, _ctx) => {
+let data: TrackDisplayData;
+try {
+data = JSON.parse(source.trim()) as TrackDisplayData;
+} catch {
+el.createEl("p", { text: "Invalid spotify player data. Re-insert the track." });
+return;
+}
+initPlayerElement(
+el,
+data,
+this.webPlayer,
+() => this.getSpotifyAccessToken(),
+this.userAuth?.premium === true,
+);
+});
+
 this.addSettingTab(new SpotifySinglePlayerSettingTab(this.app, this));
+}
+
+onunload() {
+this.webPlayer.destroy();
 }
 
 // ---- Data persistence ----
@@ -187,9 +212,6 @@ try {
 new Notice("Opening spotify login in your browser…");
 const tokenResponse = await startSpotifyOAuthLogin(this.settings.clientId);
 await this.handleLoginSuccess(tokenResponse);
-// Open the in-app Spotify login so session cookies are set in the
-// Electron browser context, enabling full-song playback in embeds.
-new SpotifyEmbedLoginModal(this.app).open();
 } catch (error) {
 const message = error instanceof Error ? error.message : "Unknown Spotify error.";
 new Notice(`Spotify login failed: ${message}`);
@@ -226,8 +248,8 @@ const tier = premium ? "Premium" : "Free";
 new Notice(
 `Logged in as ${displayName} (${tier}). ` +
 (premium
-? "Sign in on the Spotify page that opened to enable full song playback in embeds."
-: "A Spotify Premium account is required for full song playback."),
+? "Insert a spotify player into any note to play full songs on repeat."
+: "A spotify premium account is required for full song playback."),
 );
 }
 

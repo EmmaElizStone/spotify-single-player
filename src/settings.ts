@@ -1,7 +1,6 @@
 import { App, Notice, PluginSettingTab, Setting } from "obsidian";
 import SpotifySinglePlayerPlugin from "./main";
 import { CALLBACK_REDIRECT_URI } from "./auth";
-import { SpotifyEmbedLoginModal } from "./ui";
 
 export interface SpotifySinglePlayerSettings {
 clientId: string;
@@ -104,19 +103,12 @@ this.display();
 );
 
 new Setting(containerEl)
-.setName("Full song playback in embeds")
+.setName("Full song playback")
 .setDesc(
 userAuth.premium
-? "Premium account detected. Click below to sign in to spotify inside obsidian so embeds can play full songs."
-: "Free account detected. A spotify premium subscription is required for full song playback in embeds.",
-)
-.addButton((button) => {
-button.setButtonText("Open spotify sign-in page");
-if (!userAuth.premium) {
-button.setDisabled(true);
-}
-button.onClick(() => new SpotifyEmbedLoginModal(this.app).open());
-});
+? "Premium account detected. Insert a spotify player into any note and click play to stream the full song on repeat."
+: "Free account detected. A spotify premium subscription is required for full song playback.",
+);
 } else {
 new Setting(containerEl)
 .setName("Account status")
@@ -135,13 +127,13 @@ window.setTimeout(() => this.display(), 500);
 );
 }
 
-// ---- Embed options ----
+// ---- Player options ----
 
-new Setting(containerEl).setName("Embed configuration").setHeading();
+new Setting(containerEl).setName("Player configuration").setHeading();
 
 new Setting(containerEl)
-.setName("Enable autoplay for spotify embeds")
-.setDesc("Enable autoplay on generated spotify iframe embeds.")
+.setName("Enable autoplay")
+.setDesc("Automatically start playback when a spotify player is rendered in a note.")
 .addToggle((toggle) =>
 toggle.setValue(this.plugin.settings.autoplay).onChange(async (value) => {
 this.plugin.settings.autoplay = value;
@@ -150,8 +142,8 @@ await this.plugin.saveSettings();
 );
 
 new Setting(containerEl)
-.setName("Iframe height")
-.setDesc("Height in pixels used for inserted spotify iframe embeds.")
+.setName("Player height")
+.setDesc("Height in pixels for inserted spotify players.")
 .addText((text) =>
 text
 .setPlaceholder("152")

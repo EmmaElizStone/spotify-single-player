@@ -43,7 +43,8 @@ export interface SpotifyUserProfile {
 	premium: boolean;
 }
 
-const SPOTIFY_SCOPES = "user-read-private user-read-email";
+const SPOTIFY_SCOPES =
+	"user-read-private user-read-email streaming user-read-playback-state user-modify-playback-state";
 const LOGIN_TIMEOUT_MS = 5 * 60 * 1000;
 
 /**
